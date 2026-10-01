@@ -51,6 +51,7 @@ export interface EnvConfig {
 
   // Variables
   DEPLOYMENT_NAME: string;
+  RESOURCE_NAME_PREFIX?: string; // Terraform resource_name_prefix; names the job queues
   APP_NAME?: string; // Display name for user-visible UI, PR footers, and HTTP User-Agent headers
   GITHUB_BOT_USERNAME: string; // GitHub App bot login used for self-origin checks
   SCM_PROVIDER?: string; // Source control provider for this deployment (default: github)

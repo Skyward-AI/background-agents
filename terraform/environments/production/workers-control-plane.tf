@@ -97,6 +97,7 @@ module "control_plane_worker" {
       UNSAFE_ALLOW_ALL_USERS        = { value = tostring(var.unsafe_allow_all_users) }
       WORKER_URL                    = { value = local.control_plane_url }
       DEPLOYMENT_NAME               = { value = var.deployment_name }
+      RESOURCE_NAME_PREFIX          = { value = local.name_prefix }
       APP_NAME                      = { value = var.app_name }
       GITHUB_BOT_USERNAME           = { value = var.github_bot_username }
       SANDBOX_PROVIDER              = { value = var.sandbox_provider }

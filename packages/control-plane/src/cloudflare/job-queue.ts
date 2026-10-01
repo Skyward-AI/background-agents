@@ -6,10 +6,12 @@
  * Worker on its own release cycle, so an envelope with the kind inside
  * would open a skew window for nothing.
  *
- * Terraform names each queue `<prefix>-<deployment name>`, the deployment
- * name being the `DEPLOYMENT_NAME` the Worker is configured with, so a
- * batch is routed by the exact name and a dead-letter queue
- * (`<prefix>-dlq-<deployment name>`) is never mistaken for a live one.
+ * Terraform names each queue `<resource prefix>-<base name>-<deployment name>`,
+ * the resource prefix and deployment name being the `RESOURCE_NAME_PREFIX`
+ * and `DEPLOYMENT_NAME` the Worker is configured with, so a batch is routed
+ * by the exact name and a dead-letter queue
+ * (`<resource prefix>-<base name>-dlq-<deployment name>`) is never mistaken
+ * for a live one.
  * Terraform also declares each consumer's `max_retries` and `retry_delay`;
  * `job-queue.test.ts` holds those equal to the kind's `JobRetryPolicy`, so
  * the two cannot drift.
@@ -17,10 +19,13 @@
 
 import { deliverJob, type JobDeps, type JobKind, type Jobs } from "../jobs";
 
-/** The queue name prefix Terraform gives each kind's queue; the deployment name follows. */
-export const JOB_QUEUE_PREFIXES: Record<JobKind, string> = {
-  "image_build.finalize": "open-inspect-image-build-finalization",
-  "github.autofix": "open-inspect-github-autofix",
+/** Terraform's `resource_name_prefix` default, used when the Worker has no `RESOURCE_NAME_PREFIX`. */
+export const DEFAULT_RESOURCE_NAME_PREFIX = "open-inspect";
+
+/** The base name Terraform gives each kind's queue, between the resource prefix and the deployment name. */
+export const JOB_QUEUE_BASE_NAMES: Record<JobKind, string> = {
+  "image_build.finalize": "image-build-finalization",
+  "github.autofix": "github-autofix",
 };
 
 /** The Worker's producer bindings, one per job kind; a kind whose queue the deployment omits is absent. */
@@ -36,14 +41,22 @@ export const JOB_QUEUE_BINDINGS: Record<JobKind, keyof JobQueueBindings> = {
 };
 
 /** The queue Terraform names for `kind` on the deployment called `deploymentName`. */
-export function jobQueueName(kind: JobKind, deploymentName: string): string {
-  return `${JOB_QUEUE_PREFIXES[kind]}-${deploymentName}`;
+export function jobQueueName(
+  kind: JobKind,
+  deploymentName: string,
+  resourcePrefix: string = DEFAULT_RESOURCE_NAME_PREFIX
+): string {
+  return `${resourcePrefix}-${JOB_QUEUE_BASE_NAMES[kind]}-${deploymentName}`;
 }
 
 /** The kind delivered on `queueName` for this deployment, or `undefined` for a queue no kind owns. */
-export function jobKindForQueue(queueName: string, deploymentName: string): JobKind | undefined {
-  return (Object.keys(JOB_QUEUE_PREFIXES) as JobKind[]).find(
-    (kind) => queueName === jobQueueName(kind, deploymentName)
+export function jobKindForQueue(
+  queueName: string,
+  deploymentName: string,
+  resourcePrefix: string = DEFAULT_RESOURCE_NAME_PREFIX
+): JobKind | undefined {
+  return (Object.keys(JOB_QUEUE_BASE_NAMES) as JobKind[]).find(
+    (kind) => queueName === jobQueueName(kind, deploymentName, resourcePrefix)
   );
 }
 
@@ -78,12 +91,13 @@ export async function consumeJobBatch(
   batch: MessageBatch<unknown>,
   host: JobQueueHost
 ): Promise<void> {
-  const kind = jobKindForQueue(batch.queue, host.env.DEPLOYMENT_NAME);
+  const resourcePrefix = host.env.RESOURCE_NAME_PREFIX || DEFAULT_RESOURCE_NAME_PREFIX;
+  const kind = jobKindForQueue(batch.queue, host.env.DEPLOYMENT_NAME, resourcePrefix);
   if (!kind) {
     host.log.error("job.queue_unknown", {
       queue: batch.queue,
-      known_queues: (Object.keys(JOB_QUEUE_PREFIXES) as JobKind[]).map((known) =>
-        jobQueueName(known, host.env.DEPLOYMENT_NAME)
+      known_queues: (Object.keys(JOB_QUEUE_BASE_NAMES) as JobKind[]).map((known) =>
+        jobQueueName(known, host.env.DEPLOYMENT_NAME, resourcePrefix)
       ),
       messages: batch.messages.length,
     });
