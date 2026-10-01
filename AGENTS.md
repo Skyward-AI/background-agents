@@ -180,14 +180,15 @@ under 72 characters. Use the PR body for details, not the commit message.
 
 ## CI/CD
 
-Pushing to `main` auto-deploys changed services:
+Pushing to `skyward` auto-deploys changed services. Workflows trigger on `skyward`, not `main`, so
+the upstream mirror never runs CI or deploys:
 
 - **Terraform** → control plane + D1 migrations + web app if `web_platform = "cloudflare"`
   (triggers: `terraform/`, `packages/*/`)
 - **Vercel** → web app when `web_platform = "vercel"` (triggers: `packages/web/`,
   `packages/shared/`)
 - **Vercel Docs** → public documentation is **not** auto-deployed; run the `Deploy Docs` workflow
-  manually on `main` (requires the dedicated docs project secrets described in
+  manually on `skyward` (requires the dedicated docs project secrets described in
   `packages/docs/README.md`)
 - **Modal** → data plane (triggers: `packages/modal-infra/`, deployed via Terraform apply)
 

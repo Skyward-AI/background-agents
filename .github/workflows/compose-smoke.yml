@@ -8,9 +8,9 @@ name: Compose smoke
 
 on:
   push:
-    branches: [main]
+    branches: [skyward]
   pull_request:
-    branches: [main]
+    branches: [skyward]
 
 permissions:
   contents: read

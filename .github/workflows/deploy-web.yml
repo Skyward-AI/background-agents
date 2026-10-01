@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   push:
-    branches: [main]
+    branches: [skyward]
     paths:
       - "packages/web/**"
       - "packages/shared/**"

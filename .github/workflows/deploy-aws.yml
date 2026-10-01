@@ -39,7 +39,7 @@ on:
           - aws-production
         default: aws-staging
   push:
-    branches: [main]
+    branches: [skyward]
     paths:
       # What the control-plane image is built from.
       - "packages/control-plane/**"
