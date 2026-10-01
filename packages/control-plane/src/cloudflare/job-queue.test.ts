@@ -9,7 +9,7 @@ import type { Logger } from "../logger";
 import type { Env } from "../types";
 import {
   JOB_QUEUE_BINDINGS,
-  JOB_QUEUE_PREFIXES,
+  JOB_QUEUE_BASE_NAMES,
   consumeJobBatch,
   createQueueJobs,
   jobKindForQueue,
@@ -30,22 +30,22 @@ const TERRAFORM_DIR = resolve(
 const CONTROL_PLANE_WORKER = "module.control_plane_worker.worker_name";
 
 interface TerraformConsumer {
-  queuePrefix: string;
+  queueBaseName: string;
   bindingName: string | undefined;
   maxRetries: number;
   retryDelaySeconds: number;
 }
 
-/** Every `cloudflare_queue_consumer` Terraform points at the control-plane Worker, by queue prefix. */
+/** Every `cloudflare_queue_consumer` Terraform points at the control-plane Worker, by queue base name. */
 function terraformControlPlaneConsumers(): TerraformConsumer[] {
   const source = readdirSync(TERRAFORM_DIR)
     .filter((name) => name.endsWith(".tf"))
     .map((name) => readFileSync(join(TERRAFORM_DIR, name), "utf8"))
     .join("\n");
-  const queuePrefixes = new Map(
+  const queueBaseNames = new Map(
     [
       ...source.matchAll(
-        /resource "cloudflare_queue" "(\w+)" \{[^}]*queue_name\s*=\s*"([^"$]+)-\$\{local\.name_suffix\}"/g
+        /resource "cloudflare_queue" "(\w+)" \{[^}]*queue_name\s*=\s*"\$\{local\.name_prefix\}-([^"$]+)-\$\{local\.name_suffix\}"/g
       ),
     ].map((match) => [match[1]!, match[2]!])
   );
@@ -67,12 +67,12 @@ function terraformControlPlaneConsumers(): TerraformConsumer[] {
     const queue = /queue_id\s*=\s*cloudflare_queue\.(\w+)/.exec(body)?.[1];
     const maxRetries = /max_retries\s*=\s*(\d+)/.exec(body)?.[1];
     const retryDelaySeconds = /retry_delay\s*=\s*(\d+)/.exec(body)?.[1];
-    const queuePrefix = queue && queuePrefixes.get(queue);
-    if (!queuePrefix || !maxRetries || !retryDelaySeconds) {
+    const queueBaseName = queue && queueBaseNames.get(queue);
+    if (!queueBaseName || !maxRetries || !retryDelaySeconds) {
       throw new Error(`Unparsed cloudflare_queue_consumer block:\n${body}`);
     }
     consumers.push({
-      queuePrefix,
+      queueBaseName,
       bindingName: bindings.get(queue),
       maxRetries: Number(maxRetries),
       retryDelaySeconds: Number(retryDelaySeconds),
@@ -127,6 +127,18 @@ describe("jobKindForQueue", () => {
     expect(jobKindForQueue("open-inspect-github-autofix", "prod")).toBeUndefined();
   });
 
+  it("uses the configured resource prefix, and owns no queue under another prefix", () => {
+    expect(jobQueueName("github.autofix", "prod", "open-agent")).toBe(
+      "open-agent-github-autofix-prod"
+    );
+    expect(jobKindForQueue("open-agent-github-autofix-prod", "prod", "open-agent")).toBe(
+      "github.autofix"
+    );
+    expect(
+      jobKindForQueue("open-inspect-github-autofix-prod", "prod", "open-agent")
+    ).toBeUndefined();
+  });
+
   it("does not misroute a deployment named after another kind", () => {
     expect(
       jobKindForQueue(
@@ -138,16 +150,21 @@ describe("jobKindForQueue", () => {
 });
 
 describe("Terraform parity", () => {
+  it("configures the control-plane Worker with the prefix its queues are named with", () => {
+    const source = readFileSync(join(TERRAFORM_DIR, "workers-control-plane.tf"), "utf8");
+    expect(source).toMatch(/^\s*RESOURCE_NAME_PREFIX\s*=\s*\{ value = local\.name_prefix \}$/m);
+  });
+
   it("declares one consumer per job kind on the control-plane Worker, with the kind's retry policy", () => {
     const consumers = terraformControlPlaneConsumers();
     const kinds = Object.keys(JOB_KINDS) as JobKind[];
 
-    expect(consumers.map((consumer) => consumer.queuePrefix).sort()).toEqual(
-      kinds.map((kind) => JOB_QUEUE_PREFIXES[kind]).sort()
+    expect(consumers.map((consumer) => consumer.queueBaseName).sort()).toEqual(
+      kinds.map((kind) => JOB_QUEUE_BASE_NAMES[kind]).sort()
     );
     for (const consumer of consumers) {
-      const kind = jobKindForQueue(`${consumer.queuePrefix}-prod`, "prod");
-      expect(kind, consumer.queuePrefix).toBeDefined();
+      const kind = jobKindForQueue(`open-inspect-${consumer.queueBaseName}-prod`, "prod");
+      expect(kind, consumer.queueBaseName).toBeDefined();
       const { retry } = JOB_KINDS[kind!];
       // Cloudflare counts retries after the first delivery; the table counts deliveries.
       expect(consumer.maxRetries, `${kind} max_retries`).toBe(retry.maxAttempts - 1);
