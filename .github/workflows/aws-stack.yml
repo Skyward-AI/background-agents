@@ -12,7 +12,7 @@ name: AWS stack
 
 on:
   push:
-    branches: [main]
+    branches: [skyward]
     paths:
       - "terraform/modules/aws-control-plane/**"
       - "terraform/environments/aws-staging/**"
@@ -25,7 +25,7 @@ on:
       - "scripts/deploy-aws.sh"
       - ".github/workflows/aws-stack.yml"
   pull_request:
-    branches: [main]
+    branches: [skyward]
     # Duplicated rather than anchored: the Actions parser does not reliably
     # resolve YAML aliases, and every other workflow here repeats its list.
     paths:

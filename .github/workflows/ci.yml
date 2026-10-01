@@ -2,7 +2,7 @@ name: CI (TypeScript)
 
 on:
   push:
-    branches: [main]
+    branches: [skyward]
     paths:
       - ".env.example"
       - ".github/workflows/ci.yml"
@@ -38,7 +38,7 @@ on:
       # Re-include docs content and its package README after the Markdown exclusion.
       - "packages/docs/**"
   pull_request:
-    branches: [main]
+    branches: [skyward]
     paths:
       - ".env.example"
       - ".github/workflows/ci.yml"

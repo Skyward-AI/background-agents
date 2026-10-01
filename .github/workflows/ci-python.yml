@@ -2,7 +2,7 @@ name: CI (Python)
 
 on:
   push:
-    branches: [main]
+    branches: [skyward]
     paths:
       - ".github/workflows/ci-python.yml"
       - ".nvmrc"
@@ -21,7 +21,7 @@ on:
       - "packages/sandbox-runtime/src/**"
       - "packages/sandbox-images/**"
   pull_request:
-    branches: [main]
+    branches: [skyward]
     paths:
       - ".github/workflows/ci-python.yml"
       - ".nvmrc"
