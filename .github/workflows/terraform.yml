@@ -2,7 +2,7 @@ name: Terraform
 
 on:
   push:
-    branches: [main]
+    branches: [skyward]
     paths:
       - "terraform/**"
       - "scripts/**"
@@ -22,7 +22,7 @@ on:
       - ".github/workflows/terraform.yml"
       - ".nvmrc"
   pull_request:
-    branches: [main]
+    branches: [skyward]
     paths:
       - "terraform/**"
       - "scripts/**"
@@ -273,6 +273,7 @@ jobs:
           TF_VAR_allowed_github_orgs: ${{ vars.ALLOWED_GITHUB_ORGS || secrets.ALLOWED_GITHUB_ORGS }}
           TF_VAR_unsafe_allow_all_users: "${{ vars.UNSAFE_ALLOW_ALL_USERS || secrets.UNSAFE_ALLOW_ALL_USERS || 'false' }}"
           TF_VAR_deployment_name: ${{ vars.DEPLOYMENT_NAME || secrets.DEPLOYMENT_NAME }}
+          TF_VAR_resource_name_prefix: "${{ vars.RESOURCE_NAME_PREFIX || 'open-inspect' }}"
           TF_VAR_enable_github_bot: "${{ vars.ENABLE_GITHUB_BOT || secrets.ENABLE_GITHUB_BOT || 'false' }}"
           TF_VAR_github_webhook_secret: ${{ secrets.GH_WEBHOOK_SECRET }}
           TF_VAR_github_bot_username: ${{ vars.GH_BOT_USERNAME || secrets.GH_BOT_USERNAME }}
@@ -366,7 +367,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [validate, check-secrets]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.check-secrets.outputs.has-secrets == 'true'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/skyward' && needs.check-secrets.outputs.has-secrets == 'true'
     environment: production
     steps:
       - name: Checkout
@@ -469,6 +470,7 @@ jobs:
           TF_VAR_allowed_github_orgs: ${{ vars.ALLOWED_GITHUB_ORGS || secrets.ALLOWED_GITHUB_ORGS }}
           TF_VAR_unsafe_allow_all_users: "${{ vars.UNSAFE_ALLOW_ALL_USERS || secrets.UNSAFE_ALLOW_ALL_USERS || 'false' }}"
           TF_VAR_deployment_name: ${{ vars.DEPLOYMENT_NAME || secrets.DEPLOYMENT_NAME }}
+          TF_VAR_resource_name_prefix: "${{ vars.RESOURCE_NAME_PREFIX || 'open-inspect' }}"
           TF_VAR_enable_github_bot: "${{ vars.ENABLE_GITHUB_BOT || secrets.ENABLE_GITHUB_BOT || 'false' }}"
           TF_VAR_github_webhook_secret: ${{ secrets.GH_WEBHOOK_SECRET }}
           TF_VAR_github_bot_username: ${{ vars.GH_BOT_USERNAME || secrets.GH_BOT_USERNAME }}
