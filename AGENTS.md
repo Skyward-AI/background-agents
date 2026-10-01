@@ -2,26 +2,31 @@
 
 ## Skyward fork
 
-This is `Skyward-AI/background-agents`, a fork of `ColeMurray/background-agents`. Work lands on
-`skyward` (the default branch). `main` mirrors `upstream/main` and never gets our commits. Open pull
-requests against `Skyward-AI/background-agents` base `skyward`, never against upstream.
+This is `Skyward-AI/background-agents`, derived from `ColeMurray/background-agents` (detached from
+its fork network, so GitHub no longer links the two). Work lands on `skyward` (the default branch).
+`main` mirrors `upstream/main` and never gets our commits. Open pull requests against base
+`skyward`.
+
+Our changes are the commits in `git log main..skyward`. Merge pull requests into `skyward` with
+rebase or squash, not merge commits, so each change stays one replayable commit.
 
 Clone setup:
 
 ```bash
 git remote add upstream https://github.com/ColeMurray/background-agents.git
-git remote set-url --push upstream NO_PUSH_TO_UPSTREAM
 gh repo set-default Skyward-AI/background-agents
-git config rerere.enabled true && git config rerere.autoupdate true
 ```
 
-Pull upstream changes and replay ours on top:
+Pull upstream changes and replay ours on top (this also finishes the remote and `rerere` setup):
 
 ```bash
-git fetch upstream
-git checkout main && git merge --ff-only upstream/main && git push origin main
-git checkout skyward && git rebase main && git push --force-with-lease origin skyward
+scripts/sync-upstream.sh status   # what upstream added, and our patch stack
+scripts/sync-upstream.sh          # fast-forward main, rebase skyward onto it, push both
 ```
+
+On a conflict, resolve it, run `git rebase --continue`, then `scripts/sync-upstream.sh push`, or
+undo with `scripts/sync-upstream.sh abort`. Each sync keeps the previous `skyward` as a local
+`sync-backup/*` tag.
 
 Open-Inspect is a background coding agent system that spawns sandboxed dev environments to work on
 GitHub repositories. Single-tenant design. Stack: Cloudflare Workers (TypeScript), Modal (Python),
