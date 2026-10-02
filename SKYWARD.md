@@ -105,21 +105,30 @@ them up deliberately, and make each sync's push a release decision.
 
 ### Deploying from your machine
 
-From the repo root, on an up-to-date `skyward`:
+`scripts/deploy.sh` deploys from a saved plan, so what gets applied is exactly what was reviewed.
+Run it on a clean `skyward` that matches `origin/skyward`; it refuses anything else.
 
 ```bash
-npm install
-npm run build -w @open-inspect/shared
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot -w @open-inspect/linear-bot
-cd terraform/environments/production
-terraform init -backend-config=backend.tfvars   # first time, or after backend changes
-terraform plan
-terraform apply
+scripts/deploy.sh plan     # install, build worker bundles, plan, save, summarize
+scripts/deploy.sh show     # summarize the latest saved plan again
+scripts/deploy.sh apply    # apply the latest saved plan (or pass a plan path)
 ```
 
-Terraform deploys the control plane, D1 migrations, the bots, Modal (through the `modal-app`
-module), and the web app when `web_platform = "cloudflare"`. See `docs/GETTING_STARTED.md` for
-first-time setup and the two-phase Durable Object binding deploy.
+- `plan` writes `terraform/environments/production/plans/<time>-<sha>.tfplan`, plus a full text
+  rendering (`.txt`) and the plan log. `apply` writes an `.apply.log` next to it. The directory is
+  gitignored because **plan files contain secrets in plain text**. Never commit or share them.
+- The summary lists every changed resource. It flags any D1 database, R2 bucket, KV namespace,
+  queue, `random_password`, or `random_bytes` that the plan replaces or destroys. Those hold data or
+  key material, and `apply` refuses such a plan unless you pass `--allow-data-loss`.
+- A saved plan only applies against the state it was made from. If anything changed in between,
+  Terraform rejects it and you plan again.
+- First run in a new clone: create `terraform.tfvars` and `backend.tfvars` (see
+  `docs/GETTING_STARTED.md`); `plan` runs `terraform init` when `.terraform/` is missing.
+
+Terraform deploys the control plane, D1 migrations, the bots, the sandbox provider's infrastructure
+(we use Daytona, so this rebuilds the Daytona snapshot when the sandbox runtime changes), and the
+web app when `web_platform = "cloudflare"`. See `docs/GETTING_STARTED.md` for first-time setup and
+the two-phase Durable Object binding deploy.
 
 ### Skyward Terraform settings
 
@@ -135,7 +144,7 @@ first-time setup and the two-phase Durable Object binding deploy.
 
 ### Deploy ordering
 
-Some upstream changes require deploying services together. Since the 2026-10-01 sync, the control
-plane supplies source-control credentials to Modal, and Modal rejects create, restore, and build
-requests that don't include them. Deploy the control plane and Modal in the same `terraform apply`;
-don't deploy one without the other.
+Some upstream changes require deploying services together, and `terraform apply` handles that when
+one plan covers both. Read the plan summary for which services change. One example: since the
+2026-10-01 sync, Modal rejects sandbox requests unless the control plane supplies source-control
+credentials. That matters only with `sandbox_provider = "modal"`; our deployment uses Daytona.
